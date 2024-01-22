@@ -6,6 +6,9 @@ from needle import ops
 import needle.init as init
 import numpy as np
 
+from needle.init.init_initializers import *
+from needle.ops.ops_mathematic import *
+
 
 class Parameter(Tensor):
     """A special kind of tensor that represents parameters."""
@@ -88,12 +91,22 @@ class Linear(Module):
         self.out_features = out_features
 
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        self.weight = kaiming_uniform(self.in_features, self.out_features, dtype=dtype)
+        self.bias = None
+        if bias:
+            self.bias = reshape(kaiming_uniform(self.out_features, 1, dtype=dtype), (1, self.out_features))
+        
         ### END YOUR SOLUTION
 
     def forward(self, X: Tensor) -> Tensor:
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        # X is [batch_size, input_feature]
+        b_size = X.shape[0]
+        if self.bias:
+            bias_broadcast = broadcast_to(self.bias, (b_size, self.out_features))
+            return matmul(X, self.weight) + bias_broadcast
+        else:
+            return matmul(X, self.weight)
         ### END YOUR SOLUTION
 
 

@@ -13,10 +13,9 @@ TENSOR_COUNTER = 0
 
 # NOTE: we will import numpy as the array_api
 # as the backend for our computations, this line will change in later homeworks
-
 import numpy as array_api
-NDArray = numpy.ndarray
 
+NDArray = numpy.ndarray
 
 
 class Op:
@@ -371,17 +370,34 @@ def compute_gradient_of_variables(output_tensor, out_grad):
     Store the computed result in the grad field of each Variable.
     """
     # a map from node to a list of gradient contributions from each output node
-    node_to_output_grads_list: Dict[Tensor, List[Tensor]] = {}
+    node_to_output_grads_list: Dict[Tensor, List[Tensor]] = {} #i.e. the node_to_grad in slide 14 here https://dlsyscourse.org/slides/4-automatic-differentiation.pdf
+
     # Special note on initializing gradient of
     # We are really taking a derivative of the scalar reduce_sum(output_node)
     # instead of the vector output_node. But this is the common case for loss function.
     node_to_output_grads_list[output_tensor] = [out_grad]
 
     # Traverse graph in reverse topological order given the output_node that we are taking gradient wrt.
-    reverse_topo_order = list(reversed(find_topo_sort([output_tensor])))
+    reverse_topo_order = list(reversed(find_topo_sort([output_tensor]))) # list[Tensor]
 
     ### BEGIN YOUR SOLUTION
-    raise NotImplementedError()
+    for node_i in reverse_topo_order: # the first node_i would be the output_tensor here
+        v_node_i = sum_node_list(node_to_output_grads_list[node_i])  
+        # print("new node i ... op = ", node_i.op)
+        # print("v_node_i = ", v_node_i)
+        node_i.grad = v_node_i
+        node_i_op = node_i.op
+        if node_i_op is None:
+            continue # leaf node has no inputs
+        v_k_to_i_list = node_i_op.gradient(out_grad=v_node_i, node=node_i) # v_node_i here is the "out_grad"
+        if type(v_k_to_i_list) is not tuple: # case if only one input to the node_i Tensor
+            v_k_to_i_list = [v_k_to_i_list] # v_k1_i => [v_k1_i]
+        else:
+            v_k_to_i_list = list(v_k_to_i_list) # (v_k1_i, v_k2_i) => [v_k1_i, v_k2_i]
+        for k, node_k in enumerate(node_i.inputs):
+            # print(f"""tianhao debug, node_k shape = {node_k.shape}, v_k_to_i shape = {v_k_to_i_list[k].shape}, v_k_to_i = {v_k_to_i_list[k].cached_data}""")
+            node_to_output_grads_list[node_k] = node_to_output_grads_list.get(node_k, [])
+            node_to_output_grads_list[node_k].append(v_k_to_i_list[k])
     ### END YOUR SOLUTION
 
 
@@ -394,14 +410,25 @@ def find_topo_sort(node_list: List[Value]) -> List[Value]:
     sort.
     """
     ### BEGIN YOUR SOLUTION
-    raise NotImplementedError()
+    result = []
+    visited = set()
+    for node in node_list:
+        visited, result = topo_sort_dfs(node, visited, result)
+    return result
     ### END YOUR SOLUTION
 
 
 def topo_sort_dfs(node, visited, topo_order):
     """Post-order DFS"""
     ### BEGIN YOUR SOLUTION
-    raise NotImplementedError()
+    if node in visited:
+        return visited, topo_order
+    visited.add(node)
+    for input in node.inputs:
+        visited, topo_order = topo_sort_dfs(input, visited, topo_order)
+    topo_order.append(node)
+    # print(visited, topo_order)
+    return visited, topo_order
     ### END YOUR SOLUTION
 
 
