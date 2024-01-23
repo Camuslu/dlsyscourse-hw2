@@ -176,21 +176,34 @@ class BatchNorm1d(Module):
 
     def forward(self, x: Tensor) -> Tensor:
         ### BEGIN YOUR SOLUTION
-        b_size = x.shape[0]
-        mean = reshape(summation(x, axes=(0,)) / b_size, shape=(self.dim,)) # row-wise; [dim]
-        x_minus_mean = x - broadcast_to(mean, shape=(b_size, self.dim)) # [batch_size, dim]
-        x_minus_mean_sq = power_scalar(x_minus_mean, 2) # [batch_size, dim]
-        var_x = reshape(summation(x_minus_mean_sq, axes=(0,)) / b_size, shape=(self.dim,)) # [dim,]
-        var_x_plus_eps = add_scalar(var_x, self.eps) # [dim]
-        std = reshape(power_scalar(var_x_plus_eps, 0.5), shape=(1, self.dim)) # [1, dim]
-        std_broadcast = broadcast_to(std, shape=(b_size, self.dim)) # [batch_size, dim]
-        normalized = EWiseDiv()(x_minus_mean, std_broadcast)
-        normalized_with_weight = EWiseMul()(normalized, 
+        if self.training:
+            b_size = x.shape[0]
+            mean = reshape(summation(x, axes=(0,)) / b_size, shape=(self.dim,)) # row-wise; [dim]
+            x_minus_mean = x - broadcast_to(mean, shape=(b_size, self.dim)) # [batch_size, dim]
+            x_minus_mean_sq = power_scalar(x_minus_mean, 2) # [batch_size, dim]
+            var_x = reshape(summation(x_minus_mean_sq, axes=(0,)) / b_size, shape=(self.dim,)) # [dim,]
+            var_x_plus_eps = add_scalar(var_x, self.eps) # [dim]
+            std = reshape(power_scalar(var_x_plus_eps, 0.5), shape=(1, self.dim)) # [1, dim]
+            std_broadcast = broadcast_to(std, shape=(b_size, self.dim)) # [batch_size, dim]
+            normalized = EWiseDiv()(x_minus_mean, std_broadcast)
+            normalized_with_weight = EWiseMul()(normalized, 
                                             broadcast_to(self.weight, shape=(b_size, self.dim)))
-        normalized_with_weight_plus_bias = EWiseAdd()(normalized_with_weight,
+            normalized_with_weight_plus_bias = EWiseAdd()(normalized_with_weight,
                                                       broadcast_to(self.bias, shape=(b_size, self.dim)))
-        self.update_running_mean_var(new_mean = mean, new_var = var_x)
-        return normalized_with_weight_plus_bias
+            self.update_running_mean_var(new_mean = mean, new_var = var_x)
+            return normalized_with_weight_plus_bias
+        else:
+            x_minus_mean = x - broadcast_to(self.running_mean, shape=(b_size, self.dim)) # [batch_size, dim]
+            var_x_plus_eps = add_scalar(self.running_var, self.eps) # [dim]
+            std = reshape(power_scalar(var_x_plus_eps, 0.5), shape=(1, self.dim)) # [1, dim]
+            std_broadcast = broadcast_to(std, shape=(b_size, self.dim)) # [batch_size, dim]
+            normalized = EWiseDiv()(x_minus_mean, std_broadcast)
+            normalized_with_weight = EWiseMul()(normalized, 
+                                            broadcast_to(self.weight, shape=(b_size, self.dim)))
+            normalized_with_weight_plus_bias = EWiseAdd()(normalized_with_weight,
+                                                      broadcast_to(self.bias, shape=(b_size, self.dim)))
+            return normalized_with_weight_plus_bias    
+
         ### END YOUR SOLUTION
 
     def update_running_mean_var(self, new_mean: Tensor, new_var: Tensor):
@@ -245,7 +258,10 @@ class Dropout(Module):
 
     def forward(self, x: Tensor) -> Tensor:
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        if self.training is False:
+            return x # no dropout in effect
+        retain = randb(*x.shape, p = 1.0 - self.p) # the 1 - self.p is the "retain rate"
+        return EWiseMul()(x, retain) / (1.0 - self.p)
         ### END YOUR SOLUTION
 
 
