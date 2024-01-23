@@ -272,5 +272,5 @@ class Residual(Module):
 
     def forward(self, x: Tensor) -> Tensor:
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        return self.fn.forward(x) + x
         ### END YOUR SOLUTION
