@@ -15,7 +15,7 @@ import mugrade
 
 def get_tensor(*shape, entropy=1):
     np.random.seed(np.prod(shape) * len(shape) * entropy)
-    return ndl.Tensor(np.random.randint(0, 100, size=shape) / 20, dtype="float32")
+    return ndl.Tensor((np.random.randint(0, 100, size=shape) / 20).astype("float32"), dtype="float32")
 
 
 def get_int_tensor(*shape, low=0, high=10, entropy=1):

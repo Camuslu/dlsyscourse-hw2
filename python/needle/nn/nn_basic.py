@@ -113,8 +113,12 @@ class Linear(Module):
 
 class Flatten(Module):
     def forward(self, X):
-        ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        # X is shape (B,X_0,X_1,...); change it to shape (B, X_0 * X_1 * ...)
+        b_size = X.shape[0]
+        flat_shape = 1
+        for dim in X.shape[1:]:
+            flat_shape *= dim
+        return reshape(X, (b_size, flat_shape))
         ### END YOUR SOLUTION
 
 
@@ -164,13 +168,35 @@ class BatchNorm1d(Module):
         self.eps = eps
         self.momentum = momentum
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        self.weight = broadcast_to(ndl.Tensor(array_api.array([1.0]), dtype=dtype), shape=(self.dim,))
+        self.bias = broadcast_to(ndl.Tensor(array_api.array([0.0]), dtype=dtype), shape=(self.dim,))
+        self.running_mean = broadcast_to(ndl.Tensor(array_api.array([0.0]), dtype=dtype), shape=(self.dim,))
+        self.running_var = broadcast_to(ndl.Tensor(array_api.array([1.0]), dtype=dtype), shape=(self.dim,))
         ### END YOUR SOLUTION
 
     def forward(self, x: Tensor) -> Tensor:
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        b_size = x.shape[0]
+        mean = reshape(summation(x, axes=(0,)) / b_size, shape=(self.dim,)) # row-wise; [dim]
+        x_minus_mean = x - broadcast_to(mean, shape=(b_size, self.dim)) # [batch_size, dim]
+        x_minus_mean_sq = power_scalar(x_minus_mean, 2) # [batch_size, dim]
+        var_x = reshape(summation(x_minus_mean_sq, axes=(0,)) / b_size, shape=(self.dim,)) # [dim,]
+        var_x_plus_eps = add_scalar(var_x, self.eps) # [dim]
+        std = reshape(power_scalar(var_x_plus_eps, 0.5), shape=(1, self.dim)) # [1, dim]
+        std_broadcast = broadcast_to(std, shape=(b_size, self.dim)) # [batch_size, dim]
+        normalized = EWiseDiv()(x_minus_mean, std_broadcast)
+        normalized_with_weight = EWiseMul()(normalized, 
+                                            broadcast_to(self.weight, shape=(b_size, self.dim)))
+        normalized_with_weight_plus_bias = EWiseAdd()(normalized_with_weight,
+                                                      broadcast_to(self.bias, shape=(b_size, self.dim)))
+        self.update_running_mean_var(new_mean = mean, new_var = var_x)
+        return normalized_with_weight_plus_bias
         ### END YOUR SOLUTION
+
+    def update_running_mean_var(self, new_mean: Tensor, new_var: Tensor):
+        # new_mean and new_var are both of shape (dim,)
+        self.running_mean = EWiseAdd()((1 - self.momentum) * self.running_mean, new_mean * self.momentum)
+        self.running_var = EWiseAdd()((1 - self.momentum) * self.running_var, new_var * self.momentum)
 
 
 class LayerNorm1d(Module):
@@ -179,8 +205,8 @@ class LayerNorm1d(Module):
         self.dim = dim
         self.eps = eps
         ### BEGIN YOUR SOLUTION
-        self.weight = broadcast_to(ndl.Tensor(array_api.array([1.0])), shape=(self.dim,))
-        self.bias = broadcast_to(ndl.Tensor(array_api.array([0.0])), shape=(self.dim,))
+        self.weight = broadcast_to(ndl.Tensor(array_api.array([1.0]), dtype=dtype), shape=(self.dim,))
+        self.bias = broadcast_to(ndl.Tensor(array_api.array([0.0]), dtype=dtype), shape=(self.dim,))
         ### END YOUR SOLUTION
 
     def forward(self, x: Tensor) -> Tensor:
