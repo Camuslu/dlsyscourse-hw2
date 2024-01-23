@@ -8,6 +8,7 @@ import numpy as np
 
 from needle.init.init_initializers import *
 from needle.ops.ops_mathematic import *
+from needle.ops.ops_logarithmic import *
 
 
 class Parameter(Tensor):
@@ -120,27 +121,41 @@ class Flatten(Module):
 class ReLU(Module):
     def forward(self, x: Tensor) -> Tensor:
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        return relu(x)
         ### END YOUR SOLUTION
 
 
 class Sequential(Module):
     def __init__(self, *modules):
         super().__init__()
-        self.modules = modules
+        self.modules = modules # tuple
 
     def forward(self, x: Tensor) -> Tensor:
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        out = x
+        for module in self.modules:
+            out = module.forward(out)
+        return out
         ### END YOUR SOLUTION
 
 
 class SoftmaxLoss(Module):
     def forward(self, logits: Tensor, y: Tensor):
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        # logits is [batch_size, ]
+        # y is [batch_size]
+        batch_size = logits.shape[0] 
+        classes = logits.shape[1] 
+        y_one_hot = one_hot(classes, y) # [batch_size, classes]
+        log_sum_exp_logits = logsumexp(logits, axes=(1,)) # [batch_size]
+        # print("Tianhao debug", log_sum_exp_logits.realize_cached_data)
+        z_y = summation(EWiseMul()(logits, y_one_hot), axes=(1,)) # [batch_size]
+        # print("Tianhao debug", z_y.realize_cached_data)
+        loss = log_sum_exp_logits - z_y
+        # print("Tianhao debug", loss.realize_cached_data)
+        avg_loss = divide_scalar(summation(loss), batch_size)
+        return avg_loss
         ### END YOUR SOLUTION
-
 
 class BatchNorm1d(Module):
     def __init__(self, dim, eps=1e-5, momentum=0.1, device=None, dtype="float32"):
@@ -164,12 +179,36 @@ class LayerNorm1d(Module):
         self.dim = dim
         self.eps = eps
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        self.weight = broadcast_to(ndl.Tensor(array_api.array([1.0])), shape=(self.dim,))
+        self.bias = broadcast_to(ndl.Tensor(array_api.array([0.0])), shape=(self.dim,))
         ### END YOUR SOLUTION
 
     def forward(self, x: Tensor) -> Tensor:
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        b_size = x.shape[0]
+        mean = reshape(summation(x, axes=(1,)) / self.dim, shape=(b_size, 1)) # row-wise; [batch_size]
+        print("Tianhao debug", mean.realize_cached_data)
+        x_minus_mean = x - broadcast_to(mean, shape=(b_size, self.dim)) # [batch_size, dim]
+        print("Tianhao debug", x_minus_mean.realize_cached_data)
+        x_minus_mean_sq = power_scalar(x_minus_mean, 2) # [batch_size, dim]
+        print("Tianhao debug", x_minus_mean_sq.realize_cached_data)
+        var_x = summation(x_minus_mean_sq, axes=(1,)) / self.dim # [batch_size]
+        print("Tianhao debug", var_x.realize_cached_data)
+        var_x_plus_eps = add_scalar(var_x, self.eps) # [batch_size]
+        print("Tianhao debug", var_x_plus_eps.realize_cached_data)
+        std = reshape(power_scalar(var_x_plus_eps, 0.5), shape=(b_size, 1)) # [batch_size, 1]
+        print("Tianhao debug", std.realize_cached_data)
+        std_broadcast = broadcast_to(std, shape=(b_size, self.dim)) # [batch_size, dim]
+        print("Tianhao debug", std_broadcast.realize_cached_data)
+        normalized = EWiseDiv()(x_minus_mean, std_broadcast)
+        print("Tianhao debug", normalized.realize_cached_data)
+        normalized_with_weight = EWiseMul()(normalized, 
+                                            broadcast_to(self.weight, shape=(b_size, self.dim)))
+        print("Tianhao debug", normalized_with_weight.realize_cached_data)
+        normalized_with_weight_plus_bias = EWiseAdd()(normalized_with_weight,
+                                                      broadcast_to(self.bias, shape=(b_size, self.dim)))
+        print("Tianhao debug", normalized_with_weight_plus_bias.realize_cached_data)
+        return normalized_with_weight_plus_bias
         ### END YOUR SOLUTION
 
 

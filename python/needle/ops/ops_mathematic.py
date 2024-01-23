@@ -184,7 +184,7 @@ class Reshape(TensorOp):
 
     def gradient(self, out_grad, node):
         ### BEGIN YOUR SOLUTION
-        return (reshape(out_grad, node.inputs[0].shape),)
+        return reshape(out_grad, node.inputs[0].shape)
         ### END YOUR SOLUTION
 
 
@@ -210,17 +210,13 @@ class BroadcastTo(TensorOp):
         # each of the original len-3 tensor is adding itself 4 times to the output
         # thus the gradient = out_grad * some all-1 tensor, or
         # gradient = summation(out_grad) on the axes where broadcasting is taking place
-        a = node.inputs[0]
-        a_shape = a.shape
-        axes = []
-        if a_shape == () or a_shape == (1,): #input is a scalar
-            axes = tuple(range(len(self.shape)))
-        else: # input is some tensor
-            for i in range(len(a_shape)):
-                if a_shape[i] != self.shape[i]:
-                    axes.append(i)
-            axes = tuple(axes)
-        return (reshape(summation(out_grad, axes), a_shape),)
+        ori_shape = node.inputs[0].shape
+        shrink_dims = [i for i in range(len(self.shape))]
+        for i, (ori, cur) in enumerate(zip(reversed(ori_shape), reversed(self.shape))):
+            if ori == cur:
+                shrink_dims[len(self.shape) - i - 1] = -1
+        shrink_dims = tuple(filter(lambda x: x >= 0, shrink_dims))
+        return out_grad.sum(shrink_dims).reshape(ori_shape)
         ### END YOUR SOLUTION
 
 
