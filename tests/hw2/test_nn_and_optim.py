@@ -213,6 +213,7 @@ def learn_model_1d(feature_size, nclasses, _model, optimizer, epochs=1, **kwargs
             loss = loss_func(out, y0)
             loss.backward()
             # Opt should not change gradients.
+            # print("Tianhao debug", model.parameters())
             grad_before = model.parameters()[0].grad.detach().cached_data
             opt.step()
             grad_after = model.parameters()[0].grad.detach().cached_data

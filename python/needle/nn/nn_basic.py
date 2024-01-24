@@ -92,10 +92,10 @@ class Linear(Module):
         self.out_features = out_features
 
         ### BEGIN YOUR SOLUTION
-        self.weight = kaiming_uniform(self.in_features, self.out_features, dtype=dtype)
+        self.weight = Parameter(kaiming_uniform(self.in_features, self.out_features, dtype=dtype))
         self.bias = None
         if bias:
-            self.bias = reshape(kaiming_uniform(self.out_features, 1, dtype=dtype), (1, self.out_features))
+            self.bias = Parameter(reshape(kaiming_uniform(self.out_features, 1, dtype=dtype), (1, self.out_features)))
         
         ### END YOUR SOLUTION
 
