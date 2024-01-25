@@ -3,6 +3,8 @@ import needle as ndl
 import numpy as np
 from needle.init.init_basic import *
 
+from needle.ops.ops_mathematic import *
+
 class Optimizer:
     def __init__(self, params):
         self.params = params
@@ -31,6 +33,7 @@ class SGD(Optimizer):
             else:
                 grad = p.grad.data
             self.u[p] = self.momentum * self.u.get(p, zeros_like(p.data)) + (1 - self.momentum) * grad
+            # .data calls .detach() which breaks it away from the existing computation graph
             p.data = ndl.Tensor(p.data - self.lr * self.u[p], dtype="float32")
         ### END YOUR SOLUTION
 
@@ -66,5 +69,15 @@ class Adam(Optimizer):
 
     def step(self):
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        self.t += 1
+        for w in self.params:
+            if self.weight_decay > 0:
+                grad = w.grad.data + self.weight_decay * w.data
+            else:
+                grad = w.grad.data
+            self.m[w] = self.beta1 * self.m.get(w, zeros_like(w.data)) + (1 - self.beta1) * grad
+            self.v[w] = self.beta2 * self.v.get(w, zeros_like(w.data)) + (1 - self.beta2) * (grad ** 2)
+            unbiased_m = self.m[w] / (1 - self.beta1 ** self.t)
+            unbiased_v = self.v[w] / (1 - self.beta2 ** self.t)
+            w.data = ndl.Tensor(w.data - self.lr * unbiased_m / (unbiased_v**0.5 + self.eps), dtype="float32")
         ### END YOUR SOLUTION

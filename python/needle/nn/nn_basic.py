@@ -168,49 +168,26 @@ class BatchNorm1d(Module):
         self.eps = eps
         self.momentum = momentum
         ### BEGIN YOUR SOLUTION
-        self.weight = broadcast_to(ndl.Tensor(array_api.array([1.0]), dtype=dtype), shape=(self.dim,))
-        self.bias = broadcast_to(ndl.Tensor(array_api.array([0.0]), dtype=dtype), shape=(self.dim,))
-        self.running_mean = broadcast_to(ndl.Tensor(array_api.array([0.0]), dtype=dtype), shape=(self.dim,))
-        self.running_var = broadcast_to(ndl.Tensor(array_api.array([1.0]), dtype=dtype), shape=(self.dim,))
+        self.weight = Parameter(init.ones(dim, requires_grad=True))
+        self.bias = Parameter(init.zeros(dim, requires_grad=True))
+        self.running_mean = init.zeros(dim)
+        self.running_var = init.ones(dim)
         ### END YOUR SOLUTION
+
 
     def forward(self, x: Tensor) -> Tensor:
         ### BEGIN YOUR SOLUTION
         if self.training:
-            b_size = x.shape[0]
-            mean = reshape(summation(x, axes=(0,)) / b_size, shape=(self.dim,)) # row-wise; [dim]
-            x_minus_mean = x - broadcast_to(mean, shape=(b_size, self.dim)) # [batch_size, dim]
-            x_minus_mean_sq = power_scalar(x_minus_mean, 2) # [batch_size, dim]
-            var_x = reshape(summation(x_minus_mean_sq, axes=(0,)) / b_size, shape=(self.dim,)) # [dim,]
-            var_x_plus_eps = add_scalar(var_x, self.eps) # [dim]
-            std = reshape(power_scalar(var_x_plus_eps, 0.5), shape=(1, self.dim)) # [1, dim]
-            std_broadcast = broadcast_to(std, shape=(b_size, self.dim)) # [batch_size, dim]
-            normalized = EWiseDiv()(x_minus_mean, std_broadcast)
-            normalized_with_weight = EWiseMul()(normalized, 
-                                            broadcast_to(self.weight, shape=(b_size, self.dim)))
-            normalized_with_weight_plus_bias = EWiseAdd()(normalized_with_weight,
-                                                      broadcast_to(self.bias, shape=(b_size, self.dim)))
-            self.update_running_mean_var(new_mean = mean, new_var = var_x)
-            return normalized_with_weight_plus_bias
+            batch_mean = x.sum((0,)) / x.shape[0]
+            batch_var = ((x - batch_mean.broadcast_to(x.shape))**2).sum((0,)) / x.shape[0]
+            self.running_mean = (1 - self.momentum) * self.running_mean + self.momentum * batch_mean.data
+            self.running_var = (1 - self.momentum) * self.running_var + self.momentum * batch_var.data
+            norm = (x - batch_mean.broadcast_to(x.shape)) / (batch_var.broadcast_to(x.shape) + self.eps)**0.5
+            return self.weight.broadcast_to(x.shape) * norm + self.bias.broadcast_to(x.shape)
         else:
-            x_minus_mean = x - broadcast_to(self.running_mean, shape=(b_size, self.dim)) # [batch_size, dim]
-            var_x_plus_eps = add_scalar(self.running_var, self.eps) # [dim]
-            std = reshape(power_scalar(var_x_plus_eps, 0.5), shape=(1, self.dim)) # [1, dim]
-            std_broadcast = broadcast_to(std, shape=(b_size, self.dim)) # [batch_size, dim]
-            normalized = EWiseDiv()(x_minus_mean, std_broadcast)
-            normalized_with_weight = EWiseMul()(normalized, 
-                                            broadcast_to(self.weight, shape=(b_size, self.dim)))
-            normalized_with_weight_plus_bias = EWiseAdd()(normalized_with_weight,
-                                                      broadcast_to(self.bias, shape=(b_size, self.dim)))
-            return normalized_with_weight_plus_bias    
-
+            norm = (x - self.running_mean.broadcast_to(x.shape)) / (self.running_var.broadcast_to(x.shape) + self.eps)**0.5
+            return self.weight.broadcast_to(x.shape) * norm + self.bias.broadcast_to(x.shape)
         ### END YOUR SOLUTION
-
-    def update_running_mean_var(self, new_mean: Tensor, new_var: Tensor):
-        # new_mean and new_var are both of shape (dim,)
-        self.running_mean = EWiseAdd()((1 - self.momentum) * self.running_mean, new_mean * self.momentum)
-        self.running_var = EWiseAdd()((1 - self.momentum) * self.running_var, new_var * self.momentum)
-
 
 class LayerNorm1d(Module):
     def __init__(self, dim, eps=1e-5, device=None, dtype="float32"):
@@ -218,37 +195,18 @@ class LayerNorm1d(Module):
         self.dim = dim
         self.eps = eps
         ### BEGIN YOUR SOLUTION
-        self.weight = broadcast_to(ndl.Tensor(array_api.array([1.0]), dtype=dtype), shape=(self.dim,))
-        self.bias = broadcast_to(ndl.Tensor(array_api.array([0.0]), dtype=dtype), shape=(self.dim,))
+        self.weight = Parameter(init.ones(dim, requires_grad=True))
+        self.bias = Parameter(init.zeros(dim, requires_grad=True))
         ### END YOUR SOLUTION
 
     def forward(self, x: Tensor) -> Tensor:
         ### BEGIN YOUR SOLUTION
-        b_size = x.shape[0]
-        mean = reshape(summation(x, axes=(1,)) / self.dim, shape=(b_size, 1)) # row-wise; [batch_size]
-        print("Tianhao debug", mean.realize_cached_data)
-        x_minus_mean = x - broadcast_to(mean, shape=(b_size, self.dim)) # [batch_size, dim]
-        print("Tianhao debug", x_minus_mean.realize_cached_data)
-        x_minus_mean_sq = power_scalar(x_minus_mean, 2) # [batch_size, dim]
-        print("Tianhao debug", x_minus_mean_sq.realize_cached_data)
-        var_x = summation(x_minus_mean_sq, axes=(1,)) / self.dim # [batch_size]
-        print("Tianhao debug", var_x.realize_cached_data)
-        var_x_plus_eps = add_scalar(var_x, self.eps) # [batch_size]
-        print("Tianhao debug", var_x_plus_eps.realize_cached_data)
-        std = reshape(power_scalar(var_x_plus_eps, 0.5), shape=(b_size, 1)) # [batch_size, 1]
-        print("Tianhao debug", std.realize_cached_data)
-        std_broadcast = broadcast_to(std, shape=(b_size, self.dim)) # [batch_size, dim]
-        print("Tianhao debug", std_broadcast.realize_cached_data)
-        normalized = EWiseDiv()(x_minus_mean, std_broadcast)
-        print("Tianhao debug", normalized.realize_cached_data)
-        normalized_with_weight = EWiseMul()(normalized, 
-                                            broadcast_to(self.weight, shape=(b_size, self.dim)))
-        print("Tianhao debug", normalized_with_weight.realize_cached_data)
-        normalized_with_weight_plus_bias = EWiseAdd()(normalized_with_weight,
-                                                      broadcast_to(self.bias, shape=(b_size, self.dim)))
-        print("Tianhao debug", normalized_with_weight_plus_bias.realize_cached_data)
-        return normalized_with_weight_plus_bias
+        mean = (x.sum((1,))/x.shape[1]).reshape((x.shape[0], 1)).broadcast_to(x.shape)
+        var = (((x - mean)**2).sum((1,))/x.shape[1]).reshape((x.shape[0], 1)).broadcast_to(x.shape)
+        deno = (var + self.eps)**0.5
+        return self.weight.broadcast_to(x.shape) * (x - mean)/deno + self.bias.broadcast_to(x.shape)
         ### END YOUR SOLUTION
+
 
 
 class Dropout(Module):
