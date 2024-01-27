@@ -52,9 +52,16 @@ class MNISTDataset(Dataset):
 
     def __getitem__(self, index) -> object:
         ### BEGIN YOUR SOLUTION
-        img = self.images[index].reshape((28, 28, 1))
-        transformed_img = self.apply_transforms(img)
-        return (transformed_img, self.labels[index])
+        imgs = self.images[index].reshape(-1, 784) # [bsize, dim]
+        labels = self.labels[index]
+        # print("Tianhao debug imgs shape", imgs.shape)
+        result_imgs = None        
+        if imgs.shape[0] > 1: 
+            result_imgs = np.vstack([self.apply_transforms(img.reshape(28, 28, 1)) for img in imgs]).reshape(-1, 28, 28, 1)
+        else:
+            result_imgs = self.apply_transforms(imgs.reshape(28, 28, 1)).reshape(1, 28, 28, 1)
+        result_imgs = result_imgs.reshape(-1, 784)
+        return (result_imgs, labels)
         ### END YOUR SOLUTION
 
     def __len__(self) -> int:

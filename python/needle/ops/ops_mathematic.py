@@ -260,6 +260,7 @@ def summation(a, axes=None):
 class MatMul(TensorOp):
     def compute(self, a, b):
         ### BEGIN YOUR SOLUTION
+        # print("matmul tianhao debug, ", a.shape, b.shape)
         return array_api.matmul(a, b)
         ### END YOUR SOLUTION
 
@@ -333,12 +334,14 @@ def exp(a):
 class ReLU(TensorOp):
     def compute(self, a):
         ### BEGIN YOUR SOLUTION
-        return array_api.maximum(a, 0)
+        out = array_api.copy(a)
+        out[a < 0] = 0
+        return out        
         ### END YOUR SOLUTION
 
     def gradient(self, out_grad, node):
         ### BEGIN YOUR SOLUTION
-        out = node.realize_cached_data()
+        out = node.realize_cached_data().copy()
         out[out > 0] = 1
         return EWiseMul()(out_grad, Tensor(out))
         ### END YOUR SOLUTION

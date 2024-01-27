@@ -174,7 +174,6 @@ class BatchNorm1d(Module):
         self.running_var = init.ones(dim)
         ### END YOUR SOLUTION
 
-
     def forward(self, x: Tensor) -> Tensor:
         ### BEGIN YOUR SOLUTION
         if self.training:

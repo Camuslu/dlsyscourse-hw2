@@ -10850,10 +10850,12 @@ def test_dataloader_mnist():
 
     for i, batch in enumerate(mnist_train_dataloader):
         batch_x, batch_y = batch[0].numpy(), batch[1].numpy()
+        # print("Tianhao debug batch_x shape", batch_x.shape)
+        # print("Tianhao debug batch_y shape", batch_y.shape)
         truth = mnist_train_dataset[i * batch_size : (i + 1) * batch_size]
         truth_x = truth[0] if truth[0].shape[0] > 1 else truth[0].reshape(-1)
         truth_y = truth[1] if truth[1].shape[0] > 1 else truth[1].reshape(-1)
-
+        # print("Tianhao debug truth_x shape", truth_x.shape)
         np.testing.assert_allclose(truth_x, batch_x.flatten())
         np.testing.assert_allclose(batch_y, truth_y)
 
